@@ -1,0 +1,11 @@
+<Project>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="SimpleVerify.ProjectDirectory" Value="$(MSBuildProjectDirectory)\" />
+    <AssemblyMetadata
+      Include="SimpleVerify.SolutionDirectory"
+      Value="$(SolutionDir)"
+      Condition="'$(SolutionDir)' != '' and '$(SolutionDir)' != '*Undefined*'" />
+  </ItemGroup>
+
+</Project>

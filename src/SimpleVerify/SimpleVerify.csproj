@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>SimpleVerify</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Lukasz Rydzkowski</Authors>
+    <Description>Minimal snapshot-testing library for xUnit v3, byte-compatible with Verify's default text format, built on System.Text.Json.</Description>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>snapshot;approval;testing;xunit;verify</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DiffEngine" Version="19.3.2" />
+    <PackageReference Include="xunit.v3.extensibility.core" Version="3.2.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SimpleVerify.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="" />
+    <None Include="buildTransitive\SimpleVerify.props" Pack="true" PackagePath="buildTransitive\;build\" />
+    <None Include="buildTransitive\SimpleVerify.targets" Pack="true" PackagePath="buildTransitive\;build\" />
+  </ItemGroup>
+
+</Project>

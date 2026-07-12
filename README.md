@@ -16,6 +16,24 @@ SimpleVerify serializes objects with System.Text.Json contract metadata and comp
 
 - Snapshot files are located via the compile-time caller file path (`[CallerFilePath]`). Test projects must not enable `DeterministicSourcePaths` (implied by `ContinuousIntegrationBuild=true`), which rewrites source paths to `/_/...` and makes the snapshot directory unresolvable. SimpleVerify fails with a descriptive error when it detects this.
 
+## Releasing
+
+1. Open a pull request that bumps `<Version>` in `src/SimpleVerify/SimpleVerify.csproj` and merge it.
+2. Tag the merge commit and push the tag:
+
+   ```bash
+   git tag v<version>
+   git push origin v<version>
+   ```
+
+3. The `release.yml` workflow revalidates the tagged commit (build, unit tests, pack, package-consumer tests) and publishes the package to nuget.org.
+
+The tag must match the csproj version exactly (`v0.2.0` requires `<Version>0.2.0</Version>`); a mismatch fails the release before any publish. Publishing a version that already exists on nuget.org also fails — bump the version instead of re-tagging.
+
+### Local packaging note
+
+`tests/SimpleVerify.PackageConsumer` restores SimpleVerify exclusively from the local `artifacts/` feed (`dotnet pack src/SimpleVerify/SimpleVerify.csproj -o artifacts`). When repacking the same version locally, NuGet may serve a stale copy from the global cache; clear it with `dotnet nuget locals global-packages --clear`.
+
 ## Migrating a project from Verify.XunitV3
 
 1. Replace the `Verify.XunitV3` package reference with `SimpleVerify`.

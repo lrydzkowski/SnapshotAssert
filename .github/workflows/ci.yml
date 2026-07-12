@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build SimpleVerify.slnx --configuration Release
+
+      - name: Unit tests
+        run: dotnet test SimpleVerify.slnx --configuration Release --no-build
+
+      - name: Pack
+        run: dotnet pack src/SimpleVerify/SimpleVerify.csproj --configuration Release --no-build -o artifacts
+
+      - name: Package consumer tests
+        run: dotnet test tests/SimpleVerify.PackageConsumer/SimpleVerify.PackageConsumer.csproj --configuration Release

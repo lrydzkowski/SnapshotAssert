@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Verify tag matches project version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PROJECT_VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/SimpleVerify/SimpleVerify.csproj)
+          if [ "$TAG_VERSION" != "$PROJECT_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match csproj version ($PROJECT_VERSION)"
+            exit 1
+          fi
+
+      - name: Build
+        run: dotnet build SimpleVerify.slnx --configuration Release
+
+      - name: Unit tests
+        run: dotnet test SimpleVerify.slnx --configuration Release --no-build
+
+      - name: Pack
+        run: dotnet pack src/SimpleVerify/SimpleVerify.csproj --configuration Release --no-build -o artifacts
+
+      - name: Package consumer tests
+        run: dotnet test tests/SimpleVerify.PackageConsumer/SimpleVerify.PackageConsumer.csproj --configuration Release
+
+      - name: NuGet login (OIDC)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push to nuget.org
+        run: dotnet nuget push artifacts/*.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json

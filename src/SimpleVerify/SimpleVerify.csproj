@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <UserSecretsId>50b8452b-57f9-4106-b865-6ce2f1617cd7</UserSecretsId>
   </PropertyGroup>
 
   <PropertyGroup>

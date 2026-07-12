@@ -43,3 +43,8 @@ The tag must match the csproj version exactly (`v0.2.0` requires `<Version>0.2.0
 4. Build via the solution file so `$(SolutionDir)` is defined; the
    `{SolutionDirectory}` scrub token in snapshots requires it.
 5. Run the test suite. Existing `.verified.txt` files must pass unchanged; any mismatch is a SnapshotAssert bug, not a snapshot to re-approve.
+
+## Acknowledgements
+
+- SnapshotAssert is built based on [Verify](https://github.com/VerifyTests/Verify): its API, snapshot format, and approval workflow are the model for this library.
+- The project was built with [Claude Code](https://claude.com/claude-code) and [OpenSpec](https://github.com/Fission-AI/OpenSpec).

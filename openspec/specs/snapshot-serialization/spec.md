@@ -8,7 +8,7 @@ Define how object graphs, strings, and JSON inputs are rendered into Verify-comp
 
 ### Requirement: Verify-compatible default text format
 
-The library SHALL render object graphs in Verify's default object-graph text format, byte-for-byte compatible with Verify 31.x for the supported feature set: property lines as `Name: value` with unquoted names and unquoted, unescaped string values; objects delimited by `{`/`}` and collections by `[`/`]` on their own lines; members separated by trailing commas; 2-space indentation per nesting level; `\n` line endings.
+The library SHALL render object graphs in Verify's default object-graph text format, byte-for-byte compatible with Verify 31.x for the supported feature set: property lines as `Name: value` with unquoted names and unquoted, unescaped string values; objects delimited by `{`/`}` and collections by `[`/`]` on their own lines; members separated by trailing commas; 2-space indentation per nesting level; `\n` line endings. Empty string values SHALL render exactly as Verify 31.x renders them: in object context as the property name, colon, and separator space followed by nothing (`Name: ` with a trailing space); in array context as an element line carrying the normal indentation followed by nothing.
 
 #### Scenario: Simple object
 
@@ -19,6 +19,21 @@ The library SHALL render object graphs in Verify's default object-graph text for
 
 - **WHEN** an object containing a nested object and a non-empty list is serialized
 - **THEN** nested structures render as indented `{...}` and `[...]` blocks identical to Verify's output for the same graph
+
+#### Scenario: Empty string property value
+
+- **WHEN** an object with a string property equal to `""` is serialized with null/default handling that includes it
+- **THEN** the property renders as `Name: ` — colon and separator space with nothing after, the line ending in the space
+
+#### Scenario: Empty string between array items
+
+- **WHEN** the array `["a", "", "b"]` is serialized
+- **THEN** the output is exactly `[\n  a,\n  ,\n  b\n]`, the middle element's line holding its indentation followed by the next element's separator comma
+
+#### Scenario: Empty string as final array item
+
+- **WHEN** the array `["a", ""]` is serialized
+- **THEN** the output is exactly `[\n  a,\n  \n]`, the final element's line holding only its indentation
 
 ### Requirement: Scalar rendering rules
 
@@ -170,24 +185,9 @@ Members that are `IEnumerable` but not `ICollection` and not dictionary-shaped S
 - **WHEN** a member's type implements only `IReadOnlyDictionary<,>` (not `ICollection`) and the object is serialized
 - **THEN** the member renders as an object with sorted keys, not as an array of key-value pairs
 
-### Requirement: Whitespace-safe output format
+### Requirement: Single-line property names
 
-Rendered output SHALL contain no line ending in a space or tab character, so editors configured to trim trailing whitespace cannot alter `.verified.txt` files. An empty string property value SHALL render as the property name and colon with nothing after the colon (`Name:`). An empty string array element SHALL contribute no characters of its own: its line is completely blank when it is the final element, or holds only the following element's separator comma otherwise. Property names containing `\n` or `\r` SHALL have those characters escaped so a name cannot span or break lines.
-
-#### Scenario: Empty string property has no trailing space
-
-- **WHEN** an object with a string property equal to `""` is serialized with null/default handling that includes it
-- **THEN** the property renders as `Name:` with no trailing whitespace
-
-#### Scenario: Empty string in array renders without whitespace
-
-- **WHEN** the array `["a", "", "b"]` is serialized
-- **THEN** the middle element renders as a line holding only the next element's separator comma, with no indentation characters
-
-#### Scenario: Trailing empty string in array renders as blank line
-
-- **WHEN** the array `["a", ""]` is serialized
-- **THEN** the final element renders as a completely blank line
+Property names containing `\n` or `\r` SHALL have those characters escaped so a rendered name always occupies a single line and cannot break the line structure of the output.
 
 #### Scenario: Dictionary key containing a newline
 

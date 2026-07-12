@@ -1,3 +1,4 @@
+using System.Globalization;
 using SnapshotAssert.Engine;
 using Xunit;
 
@@ -160,6 +161,58 @@ public class InnerVerifierTests : IDisposable
         InnerVerifier verifier = CreateVerifier(settings: settings);
 
         await verifier.Verify("secret-value");
+
+        Assert.False(File.Exists(ReceivedPath()));
+    }
+
+    [Fact]
+    public async Task DisableDateCountingRendersAllDatesAsScrubbed()
+    {
+        File.WriteAllText(
+            VerifiedPath(),
+            "{\n  First: {Scrubbed},\n  Second: {Scrubbed},\n  Offset: {Scrubbed},\n  Text: {Scrubbed}\n}"
+        );
+        VerifySettings settings = new();
+        settings.DisableDateCounting();
+        InnerVerifier verifier = CreateVerifier(settings: settings);
+
+        await verifier.Verify(
+            new
+            {
+                First = new DateTime(2020, 6, 15, 10, 30, 0, DateTimeKind.Utc),
+                Second = new DateTime(2021, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+                Offset = new DateTimeOffset(2020, 6, 15, 10, 30, 0, TimeSpan.FromHours(2)),
+                Text = "2026-07-12"
+            }
+        );
+
+        Assert.False(File.Exists(ReceivedPath()));
+    }
+
+    [Fact]
+    public async Task DisableDateCountingAppliesToInlineDateScrubbing()
+    {
+        File.WriteAllText(VerifiedPath(), "started at {Scrubbed} done");
+        VerifySettings settings = new();
+        settings.DisableDateCounting();
+        settings.ScrubInlineDateTimes("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        InnerVerifier verifier = CreateVerifier(settings: settings);
+
+        await verifier.Verify("started at 2020-01-02 03:04:05 done");
+
+        Assert.False(File.Exists(ReceivedPath()));
+    }
+
+    [Fact]
+    public async Task DisableDateCountingWithDontScrubDateTimesRendersLiteralDates()
+    {
+        File.WriteAllText(VerifiedPath(), "{\n  Timestamp: 2020-06-15 10:30 Utc\n}");
+        VerifySettings settings = new();
+        settings.DontScrubDateTimes();
+        settings.DisableDateCounting();
+        InnerVerifier verifier = CreateVerifier(settings: settings);
+
+        await verifier.Verify(new { Timestamp = new DateTime(2020, 6, 15, 10, 30, 0, DateTimeKind.Utc) });
 
         Assert.False(File.Exists(ReceivedPath()));
     }

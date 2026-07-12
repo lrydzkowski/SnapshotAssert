@@ -2,7 +2,7 @@ using System.Globalization;
 
 namespace SnapshotAssert.Scrubbing;
 
-internal class Counter(bool scrubDateTimes, bool scrubGuids)
+internal class Counter(bool scrubDateTimes, bool scrubGuids, bool countDates = true)
 {
     private sealed class DateTimeComparer : IEqualityComparer<DateTime>
     {
@@ -42,6 +42,8 @@ internal class Counter(bool scrubDateTimes, bool scrubGuids)
     public bool ScrubDateTimes { get; } = scrubDateTimes;
 
     public bool ScrubGuids { get; } = scrubGuids;
+
+    public bool CountDates { get; } = countDates;
 
     public bool TryConvert(Guid value, out string? result)
     {
@@ -89,6 +91,11 @@ internal class Counter(bool scrubDateTimes, bool scrubGuids)
             return "Date_MinValue";
         }
 
+        if (!CountDates)
+        {
+            return "{Scrubbed}";
+        }
+
         return _dateTimeCache.GetOrAdd(value, _ => $"DateTime_{++_currentDateTime}");
     }
 
@@ -114,6 +121,11 @@ internal class Counter(bool scrubDateTimes, bool scrubGuids)
         if (value.Date == DateTime.MinValue.Date)
         {
             return "Date_MinValue";
+        }
+
+        if (!CountDates)
+        {
+            return "{Scrubbed}";
         }
 
         return _dateTimeOffsetCache.GetOrAdd(value, _ => $"DateTimeOffset_{++_currentDateTimeOffset}");

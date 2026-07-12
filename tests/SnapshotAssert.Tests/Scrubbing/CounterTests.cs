@@ -69,6 +69,37 @@ public class CounterTests
     }
 
     [Fact]
+    public void DateCountingDisabledCollapsesDatesToScrubbedToken()
+    {
+        Counter counter = new(true, true, false);
+        DateTime first = new(2020, 6, 15, 10, 30, 0, DateTimeKind.Utc);
+        DateTime second = new(2021, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+        DateTimeOffset offset = new(2020, 6, 15, 10, 30, 0, TimeSpan.FromHours(2));
+
+        Assert.Equal("{Scrubbed}", counter.Convert(first));
+        Assert.Equal("{Scrubbed}", counter.Convert(second));
+        Assert.Equal("{Scrubbed}", counter.Convert(offset));
+    }
+
+    [Fact]
+    public void MinAndMaxDatesKeepDedicatedTokensWhenCountingDisabled()
+    {
+        Counter counter = new(true, true, false);
+
+        Assert.Equal("Date_MinValue", counter.Convert(DateTime.MinValue));
+        Assert.Equal("Date_MaxValue", counter.Convert(DateTime.MaxValue));
+    }
+
+    [Fact]
+    public void GuidCountingIsUnaffectedByDateCountingDisabled()
+    {
+        Counter counter = new(true, true, false);
+
+        Assert.Equal("Guid_1", counter.Convert(Guid.NewGuid()));
+        Assert.Equal("Guid_2", counter.Convert(Guid.NewGuid()));
+    }
+
+    [Fact]
     public void DateTimeOffsetsGetOwnTokenFamily()
     {
         Counter counter = new(true, true);

@@ -62,7 +62,11 @@ internal class InnerVerifier(string directory, string filePrefix, VerifySettings
 
     private Counter CreateCounter()
     {
-        return new Counter(settings.EffectiveScrubDateTimes, settings.EffectiveScrubGuids);
+        return new Counter(
+            settings.EffectiveScrubDateTimes,
+            settings.EffectiveScrubGuids,
+            settings.EffectiveCountDates
+        );
     }
 
     private async Task CompareAndReport(string received)

@@ -17,6 +17,7 @@ public class VerifySettings
         Serialization = parent.Serialization.Clone();
         ScrubGuidsSetting = parent.ScrubGuidsSetting;
         ScrubDateTimesSetting = parent.ScrubDateTimesSetting;
+        CountDatesSetting = parent.CountDatesSetting;
         Parameters = parent.Parameters;
         FileName = parent.FileName;
     }
@@ -28,6 +29,8 @@ public class VerifySettings
     private bool? ScrubGuidsSetting { get; set; }
 
     private bool? ScrubDateTimesSetting { get; set; }
+
+    private bool? CountDatesSetting { get; set; }
 
     internal object?[]? Parameters { get; private set; }
 
@@ -59,6 +62,8 @@ public class VerifySettings
 
     internal bool EffectiveScrubDateTimes => ScrubDateTimesSetting ?? true;
 
+    internal bool EffectiveCountDates => CountDatesSetting ?? true;
+
     public void DontScrubGuids()
     {
         ScrubGuidsSetting = false;
@@ -67,6 +72,11 @@ public class VerifySettings
     public void DontScrubDateTimes()
     {
         ScrubDateTimesSetting = false;
+    }
+
+    public void DisableDateCounting()
+    {
+        CountDatesSetting = false;
     }
 
     public void AddExtraSettings(Action<SerializationSettings> action)

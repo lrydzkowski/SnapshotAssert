@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/SnapshotAssert/SnapshotAssert.csproj" />
+  <Project Path="tests/SnapshotAssert.Tests/SnapshotAssert.Tests.csproj" />
+</Solution>

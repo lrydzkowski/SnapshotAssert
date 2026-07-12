@@ -21,13 +21,13 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Build
-        run: dotnet build SimpleVerify.slnx --configuration Release
+        run: dotnet build SnapshotAssert.slnx --configuration Release
 
       - name: Unit tests
-        run: dotnet test SimpleVerify.slnx --configuration Release --no-build
+        run: dotnet test SnapshotAssert.slnx --configuration Release --no-build
 
       - name: Pack
-        run: dotnet pack src/SimpleVerify/SimpleVerify.csproj --configuration Release --no-build -o artifacts
+        run: dotnet pack src/SnapshotAssert/SnapshotAssert.csproj --configuration Release --no-build -o artifacts
 
       - name: Package consumer tests
-        run: dotnet test tests/SimpleVerify.PackageConsumer/SimpleVerify.PackageConsumer.csproj --configuration Release
+        run: dotnet test tests/SnapshotAssert.PackageConsumer/SnapshotAssert.PackageConsumer.csproj --configuration Release

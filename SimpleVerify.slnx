@@ -1,4 +1,0 @@
-<Solution>
-  <Project Path="src/SimpleVerify/SimpleVerify.csproj" />
-  <Project Path="tests/SimpleVerify.Tests/SimpleVerify.Tests.csproj" />
-</Solution>

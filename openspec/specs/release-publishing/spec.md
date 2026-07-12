@@ -22,7 +22,7 @@ The release workflow SHALL run when a tag matching `v*` is pushed, and SHALL exe
 
 ### Requirement: The tag version must match the csproj version
 
-The release workflow SHALL extract the version from the tag name by stripping the `v` prefix and SHALL fail before validation if it does not exactly equal the `<Version>` in `SimpleVerify.csproj`. The failure message MUST state both versions.
+The release workflow SHALL extract the version from the tag name by stripping the `v` prefix and SHALL fail before validation if it does not exactly equal the `<Version>` in `SnapshotAssert.csproj`. The failure message MUST state both versions.
 
 #### Scenario: Tag and csproj agree
 

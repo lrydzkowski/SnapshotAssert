@@ -217,7 +217,7 @@ public class VerifyTextWriterTests
     }
 
     [Fact]
-    public void EmptyStringPropertyValueHasNoTrailingSpace()
+    public void EmptyStringPropertyValueRendersWithSeparatorSpace()
     {
         VerifyTextWriter writer = CreateWriter(out StringBuilder builder);
         writer.WriteStartObject();
@@ -225,11 +225,11 @@ public class VerifyTextWriterTests
         writer.WriteString("");
         writer.WriteEndObject();
 
-        Assert.Equal("{\n  Name:\n}", builder.ToString());
+        Assert.Equal("{\n  Name: \n}", builder.ToString());
     }
 
     [Fact]
-    public void EmptyStringBetweenArrayItemsRendersAsSeparatorOnlyLine()
+    public void EmptyStringBetweenArrayItemsRendersAsIndentedLine()
     {
         VerifyTextWriter writer = CreateWriter(out StringBuilder builder);
         writer.WriteStartArray();
@@ -238,11 +238,11 @@ public class VerifyTextWriterTests
         writer.WriteString("b");
         writer.WriteEndArray();
 
-        Assert.Equal("[\n  a,\n,\n  b\n]", builder.ToString());
+        Assert.Equal("[\n  a,\n  ,\n  b\n]", builder.ToString());
     }
 
     [Fact]
-    public void EmptyStringAsLastArrayItemRendersAsBlankLine()
+    public void EmptyStringAsLastArrayItemRendersAsIndentationOnlyLine()
     {
         VerifyTextWriter writer = CreateWriter(out StringBuilder builder);
         writer.WriteStartArray();
@@ -250,7 +250,7 @@ public class VerifyTextWriterTests
         writer.WriteString("");
         writer.WriteEndArray();
 
-        Assert.Equal("[\n  a,\n\n]", builder.ToString());
+        Assert.Equal("[\n  a,\n  \n]", builder.ToString());
     }
 
     [Fact]
@@ -263,26 +263,5 @@ public class VerifyTextWriterTests
         writer.WriteEndObject();
 
         Assert.Equal("{\n  multi\\nline\\nname: value\n}", builder.ToString());
-    }
-
-    [Fact]
-    public void EmptyValuesNeverProduceLinesEndingInWhitespace()
-    {
-        VerifyTextWriter writer = CreateWriter(out StringBuilder builder);
-        writer.WriteStartObject();
-        writer.WritePropertyName("Empty");
-        writer.WriteString("");
-        writer.WritePropertyName("Items");
-        writer.WriteStartArray();
-        writer.WriteString("");
-        writer.WriteString("x");
-        writer.WriteString("");
-        writer.WriteEndArray();
-        writer.WriteEndObject();
-
-        foreach (string line in builder.ToString().Split('\n'))
-        {
-            Assert.False(line.EndsWith(' ') || line.EndsWith('\t'), $"Line ends in whitespace: '{line}'");
-        }
     }
 }

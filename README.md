@@ -15,6 +15,13 @@ SnapshotAssert serializes objects with System.Text.Json contract metadata and co
 ## Requirements and limitations
 
 - Snapshot files are located via the compile-time caller file path (`[CallerFilePath]`). Test projects must not enable `DeterministicSourcePaths` (implied by `ContinuousIntegrationBuild=true`), which rewrites source paths to `/_/...` and makes the snapshot directory unresolvable. SnapshotAssert fails with a descriptive error when it detects this.
+- Empty string values render with a trailing separator space (`Name: `), matching Verify. Editors configured to trim trailing whitespace on save can silently corrupt such snapshots; protect them via `.editorconfig`:
+
+  ```ini
+  [*.{received,verified}.txt]
+  trim_trailing_whitespace = false
+  insert_final_newline = false
+  ```
 
 ## Releasing
 

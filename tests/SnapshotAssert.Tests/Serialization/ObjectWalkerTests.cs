@@ -331,9 +331,9 @@ public class ObjectWalkerTests
     }
 
     [Fact]
-    public void EmptyStringRendersWithoutTrailingSpace()
+    public void EmptyStringRendersWithSeparatorSpace()
     {
-        Assert.Equal("{\n  S:\n}", Render(new { S = "" }));
+        Assert.Equal("{\n  S: \n}", Render(new { S = "" }));
     }
 
     private class CountingEnumerable : IEnumerable<int>

@@ -85,7 +85,7 @@ internal class VerifyTextWriter(StringBuilder builder)
 
     public void WriteRaw(string value)
     {
-        BeginValue(value.Length == 0);
+        BeginValue();
         builder.Append(value);
     }
 
@@ -151,16 +151,12 @@ internal class VerifyTextWriter(StringBuilder builder)
         WriteRaw(value.ToString());
     }
 
-    private void BeginValue(bool isEmptyValue = false)
+    private void BeginValue()
     {
         if (_pendingProperty)
         {
             _pendingProperty = false;
-            if (!isEmptyValue)
-            {
-                builder.Append(' ');
-            }
-
+            builder.Append(' ');
             return;
         }
 
@@ -182,15 +178,7 @@ internal class VerifyTextWriter(StringBuilder builder)
             builder.Append(',');
         }
 
-        if (isEmptyValue)
-        {
-            builder.Append('\n');
-        }
-        else
-        {
-            AppendNewLineAndIndent(_scopes.Count);
-        }
-
+        AppendNewLineAndIndent(_scopes.Count);
         scope.ChildCount++;
     }
 

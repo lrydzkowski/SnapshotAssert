@@ -141,6 +141,29 @@ public class XunitBindingTests
     }
 
     [Fact]
+    public async Task PathMappedCallerFilePathFailsWithDescriptiveError()
+    {
+        VerifyException exception = await Assert.ThrowsAsync<VerifyException>(
+            async () => await Verify("content", null, "/_/src/FakeTests.cs")
+        );
+
+        Assert.Contains("DeterministicSourcePaths", exception.Message);
+    }
+
+    [Fact]
+    public async Task MissingSnapshotDirectoryFailsWithDescriptiveError()
+    {
+        string sourceFile = Path.Combine(SourceDirectory(), "does-not-exist", "FakeTests.cs");
+
+        VerifyException exception = await Assert.ThrowsAsync<VerifyException>(
+            async () => await Verify("content", null, sourceFile)
+        );
+
+        Assert.Contains("does not exist", exception.Message);
+        Assert.DoesNotContain("DeterministicSourcePaths", exception.Message);
+    }
+
+    [Fact]
     public async Task SharedSettingsInstanceIsNotMutatedByUseParameters()
     {
         VerifySettings shared = new();

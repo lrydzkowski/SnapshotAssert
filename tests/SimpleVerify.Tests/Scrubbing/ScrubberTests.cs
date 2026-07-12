@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using SimpleVerify.Scrubbing;
+using SimpleVerify.Serialization;
 using Xunit;
 
 namespace SimpleVerify.Tests.Scrubbing;
@@ -130,5 +131,18 @@ public class ScrubberTests
         VerifySettings settings = new();
 
         Assert.Equal("a\nb\nc", Apply(settings, "a\r\nb\rc"));
+    }
+
+    [Fact]
+    public void NonIdempotentScrubberAppliesExactlyOncePerVerification()
+    {
+        VerifySettings settings = new();
+        settings.ScrubLinesWithReplace(line => line.Replace("a", "aa"));
+        Counter counter = new(settings.EffectiveScrubDateTimes, settings.EffectiveScrubGuids);
+        StringBuilder builder = JsonFormatter.AsJson(new { Text = "abc" }, settings, counter);
+
+        ApplyScrubbers.ApplyForExtension(builder, settings, counter);
+
+        Assert.Equal("{\n  Text: aabc\n}", builder.ToString());
     }
 }

@@ -151,7 +151,7 @@ internal class Counter(bool scrubDateTimes, bool scrubGuids)
             && DateTimeOffset.TryParseExact(
                 value,
                 DateTimeParseFormat,
-                null,
+                CultureInfo.InvariantCulture,
                 DateTimeStyles.None,
                 out DateTimeOffset date
             ))
@@ -167,7 +167,13 @@ internal class Counter(bool scrubDateTimes, bool scrubGuids)
     private bool TryConvertDateTime(ReadOnlySpan<char> value, out string? result)
     {
         if (ScrubDateTimes
-            && DateTime.TryParseExact(value, DateTimeParseFormat, null, DateTimeStyles.None, out DateTime date))
+            && DateTime.TryParseExact(
+                value,
+                DateTimeParseFormat,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out DateTime date
+            ))
         {
             result = Convert(date);
             return true;
@@ -179,7 +185,9 @@ internal class Counter(bool scrubDateTimes, bool scrubGuids)
 
     private bool TryConvertDate(ReadOnlySpan<char> value, out string? result)
     {
-        if (ScrubDateTimes && DateOnly.TryParseExact(value, "d", null, DateTimeStyles.None, out DateOnly date))
+        if (ScrubDateTimes
+            && (DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly date)
+                || DateOnly.TryParseExact(value, "d", CultureInfo.InvariantCulture, DateTimeStyles.None, out date)))
         {
             result = Convert(date.ToDateTime(TimeOnly.MinValue));
             return true;

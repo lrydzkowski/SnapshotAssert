@@ -59,10 +59,23 @@ internal class VerifyTextWriter(StringBuilder builder)
         }
 
         AppendNewLineAndIndent(_scopes.Count);
-        builder.Append(name);
+        builder.Append(EscapeName(name));
         builder.Append(':');
         scope.ChildCount++;
         _pendingProperty = true;
+    }
+
+    private static string EscapeName(string name)
+    {
+        if (name.AsSpan().IndexOfAny('\n', '\r') == -1)
+        {
+            return name;
+        }
+
+        return name
+            .Replace("\r\n", "\\n")
+            .Replace("\n", "\\n")
+            .Replace("\r", "\\n");
     }
 
     public void WriteNull()
@@ -72,7 +85,7 @@ internal class VerifyTextWriter(StringBuilder builder)
 
     public void WriteRaw(string value)
     {
-        BeginValue();
+        BeginValue(value.Length == 0);
         builder.Append(value);
     }
 
@@ -138,12 +151,16 @@ internal class VerifyTextWriter(StringBuilder builder)
         WriteRaw(value.ToString());
     }
 
-    private void BeginValue()
+    private void BeginValue(bool isEmptyValue = false)
     {
         if (_pendingProperty)
         {
             _pendingProperty = false;
-            builder.Append(' ');
+            if (!isEmptyValue)
+            {
+                builder.Append(' ');
+            }
+
             return;
         }
 
@@ -165,7 +182,15 @@ internal class VerifyTextWriter(StringBuilder builder)
             builder.Append(',');
         }
 
-        AppendNewLineAndIndent(_scopes.Count);
+        if (isEmptyValue)
+        {
+            builder.Append('\n');
+        }
+        else
+        {
+            AppendNewLineAndIndent(_scopes.Count);
+        }
+
         scope.ChildCount++;
     }
 

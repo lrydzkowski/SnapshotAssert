@@ -1,5 +1,7 @@
+using System.Collections;
 using System.Net;
 using System.Text.Json.Nodes;
+using SimpleVerify.Engine;
 using SimpleVerify.Scrubbing;
 using SimpleVerify.Serialization;
 using Xunit;
@@ -155,6 +157,31 @@ public class ObjectWalkerTests
         Assert.Equal("{\n  alpha: 2,\n  mango: 3,\n  zebra: 1\n}", Render(target));
     }
 
+    [Fact]
+    public void DictionariesWithMixedKeyTypesRenderWithoutThrowing()
+    {
+        Dictionary<object, string> target = new()
+        {
+            [2] = "number",
+            ["1"] = "text"
+        };
+
+        Assert.Equal("{\n  1: text,\n  2: number\n}", Render(target));
+    }
+
+    [Fact]
+    public void DictionaryStringKeysSortOrdinally()
+    {
+        Dictionary<string, int> target = new()
+        {
+            ["apple"] = 1,
+            ["Banana"] = 2,
+            ["cherry"] = 3
+        };
+
+        Assert.Equal("{\n  Banana: 2,\n  apple: 1,\n  cherry: 3\n}", Render(target));
+    }
+
     private class SelfReferencing
     {
         public string Name { get; set; } = "self";
@@ -249,9 +276,132 @@ public class ObjectWalkerTests
     }
 
     [Fact]
-    public void EmptyStringRendersAsBlankValue()
+    public void DateOnlyScrubsAndSharesTokenWithEquivalentDateString()
     {
-        Assert.Equal("{\n  S: \n}", Render(new { S = "" }));
+        var target = new { BirthDate = new DateOnly(2026, 7, 12), Text = "2026-07-12" };
+
+        Assert.Equal("{\n  BirthDate: DateTime_1,\n  Text: DateTime_1\n}", Render(target));
+    }
+
+    [Fact]
+    public void DateOnlyRendersLiteralDateWhenScrubbingDisabled()
+    {
+        VerifySettings settings = new();
+        settings.DontScrubDateTimes();
+
+        Assert.Equal(
+            "{\n  BirthDate: 2026-07-12\n}",
+            Render(new { BirthDate = new DateOnly(2026, 7, 12) }, settings)
+        );
+    }
+
+    [Fact]
+    public void TimeOnlyRendersInvariantTime()
+    {
+        Assert.Equal("{\n  StartsAt: 10:30:00\n}", Render(new { StartsAt = new TimeOnly(10, 30) }));
+    }
+
+    [Fact]
+    public void UriRendersOriginalString()
+    {
+        Assert.Equal(
+            "{\n  Endpoint: https://example.test/api\n}",
+            Render(new { Endpoint = new Uri("https://example.test/api") })
+        );
+    }
+
+    [Fact]
+    public void VersionRendersItsValue()
+    {
+        Assert.Equal("{\n  Version: 1.2.3\n}", Render(new { Version = new Version(1, 2, 3) }));
+    }
+
+    [Fact]
+    public void UnsupportedConverterBackedTypeFailsFast()
+    {
+        VerifyException exception = Assert.Throws<VerifyException>(() => Render(new { Value = (Int128)1 }));
+
+        Assert.Contains("Int128", exception.Message);
+    }
+
+    [Fact]
+    public void PlainObjectValueRendersAsEmptyBraces()
+    {
+        Assert.Equal("{\n  Value: {}\n}", Render(new { Value = new object() }));
+    }
+
+    [Fact]
+    public void EmptyStringRendersWithoutTrailingSpace()
+    {
+        Assert.Equal("{\n  S:\n}", Render(new { S = "" }));
+    }
+
+    private class CountingEnumerable : IEnumerable<int>
+    {
+        public int Enumerations { get; private set; }
+
+        public IEnumerator<int> GetEnumerator()
+        {
+            Enumerations++;
+            return ((IEnumerable<int>)[1, 2]).GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+    }
+
+    [Fact]
+    public void LazyEnumerableMemberIsEnumeratedExactlyOnce()
+    {
+        CountingEnumerable numbers = new();
+
+        Assert.Equal("{\n  Numbers: [\n    1,\n    2\n  ]\n}", Render(new { Numbers = numbers }));
+        Assert.Equal(1, numbers.Enumerations);
+    }
+
+    private class ReadOnlyMap : IReadOnlyDictionary<string, int>
+    {
+        private readonly Dictionary<string, int> _inner = new()
+        {
+            ["b"] = 2,
+            ["a"] = 1
+        };
+
+        public int this[string key] => _inner[key];
+
+        public IEnumerable<string> Keys => _inner.Keys;
+
+        public IEnumerable<int> Values => _inner.Values;
+
+        public int Count => _inner.Count;
+
+        public bool ContainsKey(string key)
+        {
+            return _inner.ContainsKey(key);
+        }
+
+        public bool TryGetValue(string key, out int value)
+        {
+            return _inner.TryGetValue(key, out value);
+        }
+
+        public IEnumerator<KeyValuePair<string, int>> GetEnumerator()
+        {
+            return _inner.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+    }
+
+    [Fact]
+    public void ReadOnlyDictionaryOnlyTypeRendersAsDictionary()
+    {
+        Assert.Equal("{\n  Map: {\n    a: 1,\n    b: 2\n  }\n}", Render(new { Map = new ReadOnlyMap() }));
     }
 
     [Fact]

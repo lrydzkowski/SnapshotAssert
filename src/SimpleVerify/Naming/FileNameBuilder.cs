@@ -1,10 +1,13 @@
 using System.Globalization;
+using System.Text;
 using SimpleVerify.Engine;
 
 namespace SimpleVerify.Naming;
 
 internal static class FileNameBuilder
 {
+    private static readonly HashSet<char> InvalidCharacters = BuildInvalidCharacters();
+
     public static string Build(
         string typeName,
         string methodName,
@@ -14,7 +17,7 @@ internal static class FileNameBuilder
     {
         if (settings.FileName is not null)
         {
-            return settings.FileName;
+            return Sanitize(settings.FileName);
         }
 
         string prefix = $"{typeName}.{methodName}";
@@ -41,7 +44,34 @@ internal static class FileNameBuilder
         string[] segments = parameters
             .Select((value, index) => $"{parameterNames[index]}={Format(value)}")
             .ToArray();
-        return $"{prefix}_{string.Join("_", segments)}";
+        return Sanitize($"{prefix}_{string.Join("_", segments)}");
+    }
+
+    private static HashSet<char> BuildInvalidCharacters()
+    {
+        HashSet<char> characters = ['\\', '/', ':', '*', '?', '"', '<', '>', '|'];
+        for (char character = '\0'; character < ' '; character++)
+        {
+            characters.Add(character);
+        }
+
+        foreach (char character in Path.GetInvalidFileNameChars())
+        {
+            characters.Add(character);
+        }
+
+        return characters;
+    }
+
+    private static string Sanitize(string prefix)
+    {
+        StringBuilder builder = new(prefix.Length);
+        foreach (char character in prefix)
+        {
+            builder.Append(InvalidCharacters.Contains(character) ? '-' : character);
+        }
+
+        return builder.ToString();
     }
 
     private static string Format(object? value)

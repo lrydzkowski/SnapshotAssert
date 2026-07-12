@@ -12,6 +12,10 @@ SimpleVerify serializes objects with System.Text.Json contract metadata and comp
   `Verify(object, VerifySettings)`, `VerifyJson(string)`, `UseParameters`, `UseFileName`, and the inventoried `VerifySettings` scrubbing/serialization methods.
 - No Argon/Json.NET dependency.
 
+## Requirements and limitations
+
+- Snapshot files are located via the compile-time caller file path (`[CallerFilePath]`). Test projects must not enable `DeterministicSourcePaths` (implied by `ContinuousIntegrationBuild=true`), which rewrites source paths to `/_/...` and makes the snapshot directory unresolvable. SimpleVerify fails with a descriptive error when it detects this.
+
 ## Migrating a project from Verify.XunitV3
 
 1. Replace the `Verify.XunitV3` package reference with `SimpleVerify`.

@@ -17,16 +17,18 @@ public class SettingsTask
     public SettingsTask UseParameters(params object?[] parameters)
     {
         _settings.UseParameters(parameters);
+
         return this;
     }
 
     public SettingsTask UseFileName(string fileName)
     {
         _settings.UseFileName(fileName);
+
         return this;
     }
 
-    public Task ToTask()
+    private Task ToTask()
     {
         return _task ??= _buildTask(_settings);
     }

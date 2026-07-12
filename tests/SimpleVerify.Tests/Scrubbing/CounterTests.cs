@@ -1,3 +1,4 @@
+using System.Globalization;
 using SimpleVerify.Scrubbing;
 using Xunit;
 
@@ -111,5 +112,66 @@ public class CounterTests
         Counter counter = new(true, true);
 
         Assert.False(counter.TryConvert("not a guid or date".AsSpan(), out _));
+    }
+
+    [Fact]
+    public void WholeStringIsoDateConverts()
+    {
+        Counter counter = new(true, true);
+
+        Assert.True(counter.TryConvert("2026-07-12".AsSpan(), out string? result));
+        Assert.Equal("DateTime_1", result);
+    }
+
+    [Fact]
+    public void WholeStringInvariantShortDateConverts()
+    {
+        Counter counter = new(true, true);
+
+        Assert.True(counter.TryConvert("07/12/2026".AsSpan(), out string? result));
+        Assert.Equal("DateTime_1", result);
+    }
+
+    [Fact]
+    public void IsoDateAndInvariantShortDateOfSameDayShareOneToken()
+    {
+        Counter counter = new(true, true);
+
+        Assert.True(counter.TryConvert("2026-07-12".AsSpan(), out string? first));
+        Assert.True(counter.TryConvert("07/12/2026".AsSpan(), out string? second));
+        Assert.Equal(first, second);
+    }
+
+    [Fact]
+    public void SingleDigitShortDateDoesNotConvert()
+    {
+        Counter counter = new(true, true);
+
+        Assert.False(counter.TryConvert("7/12/2026".AsSpan(), out _));
+    }
+
+    [Fact]
+    public void StringDateConversionIsIdenticalAcrossCultures()
+    {
+        string[] values = ["2026-07-12", "07/12/2026", "12.07.2026", "2020-06-15T10:30:00", "7/12/2026"];
+
+        (bool Converted, string? Result)[] ConvertAll(string cultureName)
+        {
+            CultureInfo original = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentCulture = new CultureInfo(cultureName);
+                Counter counter = new(true, true);
+                return values
+                    .Select(value => (counter.TryConvert(value.AsSpan(), out string? result), result))
+                    .ToArray();
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = original;
+            }
+        }
+
+        Assert.Equal(ConvertAll("en-US"), ConvertAll("de-DE"));
     }
 }

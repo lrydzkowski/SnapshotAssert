@@ -33,6 +33,7 @@ internal class InnerVerifier(string directory, string filePrefix, VerifySettings
         }
 
         ApplyScrubbers.ApplyForExtension(builder, settings, counter);
+
         return CompareAndReport(builder.ToString());
     }
 
@@ -55,6 +56,7 @@ internal class InnerVerifier(string directory, string filePrefix, VerifySettings
         Counter counter = CreateCounter();
         StringBuilder builder = JsonFormatter.AsJson(node, settings, counter);
         ApplyScrubbers.ApplyForExtension(builder, settings, counter);
+
         return CompareAndReport(builder.ToString());
     }
 
@@ -69,12 +71,12 @@ internal class InnerVerifier(string directory, string filePrefix, VerifySettings
 
         if (!File.Exists(VerifiedPath) || new FileInfo(VerifiedPath).Length == 0)
         {
-            File.WriteAllText(ReceivedPath, received, Encoding);
-            await LaunchDiff();
+            await File.WriteAllTextAsync(ReceivedPath, received, Encoding).ConfigureAwait(false);
+            await LaunchDiff().ConfigureAwait(false);
             throw VerifyException.New(directory, ReceivedName, VerifiedName, received);
         }
 
-        string verified = File.ReadAllText(VerifiedPath, Encoding);
+        string verified = await File.ReadAllTextAsync(VerifiedPath, Encoding).ConfigureAwait(false);
         if (verified.Contains('\r'))
         {
             throw new VerifyException(
@@ -88,8 +90,8 @@ internal class InnerVerifier(string directory, string filePrefix, VerifySettings
             return;
         }
 
-        File.WriteAllText(ReceivedPath, received, Encoding);
-        await LaunchDiff();
+        await File.WriteAllTextAsync(ReceivedPath, received, Encoding).ConfigureAwait(false);
+        await LaunchDiff().ConfigureAwait(false);
         throw VerifyException.NotEqual(directory, ReceivedName, VerifiedName, received, verified);
     }
 

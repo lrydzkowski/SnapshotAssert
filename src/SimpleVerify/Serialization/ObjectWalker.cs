@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
+using SimpleVerify.Engine;
 using SimpleVerify.Scrubbing;
 using SimpleVerify.Writing;
 
@@ -21,7 +22,7 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
         IncludeFields = true
     };
 
-    private static readonly ConcurrentDictionary<Type, MemberEntry[]> MemberCache = new();
+    private static readonly ConcurrentDictionary<Type, MemberEntry[]?> MemberCache = new();
     private static readonly ConcurrentDictionary<Type, object?> DefaultValueCache = new();
 
     private readonly List<object> _ancestors = [];
@@ -80,6 +81,18 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
             case Enum enumValue:
                 WriteString(enumValue.ToString());
                 return;
+            case DateOnly dateOnly:
+                WriteDateTime(dateOnly.ToDateTime(TimeOnly.MinValue));
+                return;
+            case TimeOnly timeOnly:
+                writer.WriteRaw(timeOnly.ToString("HH:mm:ss.FFFFFFF", CultureInfo.InvariantCulture));
+                return;
+            case Uri uri:
+                WriteString(uri.OriginalString);
+                return;
+            case Version version:
+                WriteString(version.ToString());
+                return;
             case JsonNode node:
                 WriteJsonNode(node);
                 return;
@@ -114,7 +127,12 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
             return;
         }
 
-        writer.WriteString(ApplyScrubbers.ApplyForPropertyValue(value, settings, counter));
+        writer.WriteString(NormalizeNewlines(value));
+    }
+
+    private static string NormalizeNewlines(string value)
+    {
+        return value.Replace("\r\n", "\n").Replace('\r', '\n');
     }
 
     private void WriteGuid(Guid value)
@@ -125,7 +143,7 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
             return;
         }
 
-        WriteRawWithScrubbers(value.ToString("D"));
+        writer.WriteRaw(value.ToString("D"));
     }
 
     private void WriteDateTime(DateTime value)
@@ -136,7 +154,7 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
             return;
         }
 
-        WriteRawWithScrubbers(DateFormatter.Convert(value));
+        writer.WriteRaw(DateFormatter.Convert(value));
     }
 
     private void WriteDateTimeOffset(DateTimeOffset value)
@@ -147,25 +165,23 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
             return;
         }
 
-        WriteRawWithScrubbers(DateFormatter.Convert(value));
-    }
-
-    private void WriteRawWithScrubbers(string value)
-    {
-        if (value.Length == 0)
-        {
-            writer.WriteRaw(string.Empty);
-            return;
-        }
-
-        writer.WriteRaw(ApplyScrubbers.ApplyForPropertyValue(value, settings, counter));
+        writer.WriteRaw(DateFormatter.Convert(value));
     }
 
     private void WriteObject(object value)
     {
+        MemberEntry[]? members = GetMembers(value.GetType());
+        if (members is null)
+        {
+            throw new VerifyException(
+                $"Type '{value.GetType()}' is serialized by a built-in converter and has no members to render. "
+                + "SimpleVerify has no rendering for it; convert the value to a supported type before verifying."
+            );
+        }
+
         writer.WriteStartObject();
         Push(value);
-        foreach (MemberEntry member in GetMembers(value.GetType()))
+        foreach (MemberEntry member in members)
         {
             object? memberValue;
             try
@@ -214,6 +230,13 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
             return;
         }
 
+        if (value is IEnumerable lazyEnumerable
+            && value is not (string or byte[] or ICollection)
+            && !IsDictionaryShaped(value))
+        {
+            value = lazyEnumerable.Cast<object?>().ToList();
+        }
+
         if (settings.Serialization.IgnoreEmptyCollections
             && value is not (string or byte[])
             && value is IEnumerable collection
@@ -249,11 +272,13 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
     {
         writer.WriteStartObject();
         Push(dictionary);
-        foreach ((object key, object? value) in entries.OrderBy(_ => _.Key))
+        foreach ((string key, object? value) in entries
+                     .Select(entry => (Key: ConvertDictionaryKey(entry.Key), entry.Value))
+                     .OrderBy(_ => _.Key, StringComparer.Ordinal))
         {
             if (value is null)
             {
-                WriteNullMember(ConvertDictionaryKey(key));
+                WriteNullMember(key);
                 continue;
             }
 
@@ -262,7 +287,7 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
                 continue;
             }
 
-            writer.WritePropertyName(ConvertDictionaryKey(key));
+            writer.WritePropertyName(key);
             WriteValue(value);
         }
 
@@ -282,6 +307,8 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
             DateTimeOffset dateTimeOffset => counter.TryConvert(dateTimeOffset, out string? converted)
                 ? converted!
                 : DateFormatter.Convert(dateTimeOffset),
+            DateOnly dateOnly => ConvertDictionaryKey(dateOnly.ToDateTime(TimeOnly.MinValue)),
+            TimeOnly timeOnly => timeOnly.ToString("HH:mm:ss.FFFFFFF", CultureInfo.InvariantCulture),
             _ => Convert.ToString(key, CultureInfo.InvariantCulture) ?? string.Empty
         };
     }
@@ -397,6 +424,15 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
         return false;
     }
 
+    private static bool IsDictionaryShaped(object value)
+    {
+        return value is IDictionary
+               || value
+                   .GetType()
+                   .GetInterfaces()
+                   .Any(_ => _.IsGenericType && _.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>));
+    }
+
     private static bool IsEmpty(IEnumerable enumerable)
     {
         if (enumerable is ICollection collection)
@@ -458,14 +494,19 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
         return DefaultValueCache.GetOrAdd(type, static _ => Activator.CreateInstance(_));
     }
 
-    private static MemberEntry[] GetMembers(Type type)
+    private static MemberEntry[]? GetMembers(Type type)
     {
         return MemberCache.GetOrAdd(type, static _ => BuildMembers(_));
     }
 
-    private static MemberEntry[] BuildMembers(Type type)
+    private static MemberEntry[]? BuildMembers(Type type)
     {
         JsonTypeInfo typeInfo = Resolver.GetTypeInfo(type, TypeInfoOptions);
+        if (typeInfo.Kind == JsonTypeInfoKind.None)
+        {
+            return type == typeof(object) ? [] : null;
+        }
+
         if (typeInfo.Kind != JsonTypeInfoKind.Object)
         {
             return [];

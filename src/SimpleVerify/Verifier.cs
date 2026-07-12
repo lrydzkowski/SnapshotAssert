@@ -10,7 +10,8 @@ namespace SimpleVerify;
 
 public static class Verifier
 {
-    private static int _assemblyAssigned;
+    private static readonly object AssignLock = new();
+    private static bool _assemblyAssigned;
 
     public static SettingsTask Verify(
         object? target,
@@ -18,7 +19,7 @@ public static class Verifier
         [CallerFilePath] string sourceFile = ""
     )
     {
-        return new SettingsTask(settings, resolved => BuildVerifier(resolved, sourceFile).Verify(target));
+        return new SettingsTask(settings, verifySettings => BuildVerifier(verifySettings, sourceFile).Verify(target));
     }
 
     public static SettingsTask VerifyJson(
@@ -27,7 +28,7 @@ public static class Verifier
         [CallerFilePath] string sourceFile = ""
     )
     {
-        return new SettingsTask(settings, resolved => BuildVerifier(resolved, sourceFile).VerifyJson(json));
+        return new SettingsTask(settings, verifySettings => BuildVerifier(verifySettings, sourceFile).VerifyJson(json));
     }
 
     private static InnerVerifier BuildVerifier(VerifySettings settings, string sourceFile)
@@ -55,7 +56,16 @@ public static class Verifier
             .ToArray();
         string prefix = FileNameBuilder.Build(typeName, method.Name, parameterNames, settings);
         string directory = Path.GetDirectoryName(sourceFile)!;
+        if (!Directory.Exists(directory))
+        {
+            string hint = sourceFile.StartsWith("/_", StringComparison.Ordinal)
+                ? " The caller file path looks rewritten by DeterministicSourcePaths/ContinuousIntegrationBuild (PathMap); disable deterministic source paths for test projects."
+                : string.Empty;
+            throw new VerifyException($"Snapshot directory does not exist: {directory}.{hint}");
+        }
+
         PrefixUnique.CheckPrefixIsUnique(Path.Combine(directory, prefix));
+
         return new InnerVerifier(directory, prefix, settings);
     }
 
@@ -78,26 +88,30 @@ public static class Verifier
 
     private static void AssignTargetAssembly(Assembly assembly)
     {
-        if (Interlocked.Exchange(ref _assemblyAssigned, 1) == 1)
+        lock (AssignLock)
         {
-            return;
-        }
-
-        string? solutionDirectory = null;
-        string? projectDirectory = null;
-        foreach (AssemblyMetadataAttribute attribute in assembly.GetCustomAttributes<AssemblyMetadataAttribute>())
-        {
-            switch (attribute.Key)
+            if (_assemblyAssigned)
             {
-                case "SimpleVerify.SolutionDirectory":
-                    solutionDirectory = attribute.Value;
-                    break;
-                case "SimpleVerify.ProjectDirectory":
-                    projectDirectory = attribute.Value;
-                    break;
+                return;
             }
-        }
 
-        DirectoryReplacements.UseAssembly(solutionDirectory, projectDirectory);
+            string? solutionDirectory = null;
+            string? projectDirectory = null;
+            foreach (AssemblyMetadataAttribute attribute in assembly.GetCustomAttributes<AssemblyMetadataAttribute>())
+            {
+                switch (attribute.Key)
+                {
+                    case "SimpleVerify.SolutionDirectory":
+                        solutionDirectory = attribute.Value;
+                        break;
+                    case "SimpleVerify.ProjectDirectory":
+                        projectDirectory = attribute.Value;
+                        break;
+                }
+            }
+
+            DirectoryReplacements.UseAssembly(solutionDirectory, projectDirectory);
+            _assemblyAssigned = true;
+        }
     }
 }

@@ -23,7 +23,7 @@ internal static class DateScrubber
             );
         }
 
-        return (builder, counter) => ReplaceDateTimes(builder, format, counter, culture ?? CultureInfo.CurrentCulture);
+        return (builder, counter) => ReplaceDateTimes(builder, format, counter, culture ?? CultureInfo.InvariantCulture);
     }
 
     private static void ReplaceDateTimes(StringBuilder builder, string format, Counter counter, CultureInfo culture)

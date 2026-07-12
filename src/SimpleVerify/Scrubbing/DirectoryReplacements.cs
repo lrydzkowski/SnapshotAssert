@@ -6,7 +6,7 @@ internal static class DirectoryReplacements
 {
     private readonly record struct Pair(string Find, string Replace);
 
-    private static List<Pair> _items = BuildItems(null, null);
+    private static volatile List<Pair> _items = BuildItems(null, null);
 
     public static void UseAssembly(string? solutionDirectory, string? projectDirectory)
     {

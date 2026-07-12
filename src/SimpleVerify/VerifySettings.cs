@@ -35,6 +35,8 @@ public class VerifySettings
 
     public void UseParameters(params object?[] parameters)
     {
+        ArgumentNullException.ThrowIfNull(parameters);
+
         if (parameters.Length == 0)
         {
             throw new ArgumentException("At least one parameter value is required", nameof(parameters));

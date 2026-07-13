@@ -11,7 +11,7 @@
 
   <PropertyGroup>
     <PackageId>SnapshotAssert</PackageId>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <Authors>Lukasz Rydzkowski</Authors>
     <Description>Minimal snapshot-testing library for xUnit v3, byte-compatible with Verify's default text format, built on System.Text.Json.</Description>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>

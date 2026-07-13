@@ -1,5 +1,7 @@
 using System.Collections;
 using System.Net;
+using System.Numerics;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using SnapshotAssert.Engine;
 using SnapshotAssert.Scrubbing;
@@ -123,6 +125,78 @@ public class ObjectWalkerTests
         var target = new { message = "failed", errorStackTrace = "at Foo()" };
 
         Assert.Equal("{\n  message: failed\n}", Render(target, settings));
+    }
+
+    [Fact]
+    public void MemberOfIgnoredTypeIsOmittedViaGenericOverload()
+    {
+        VerifySettings settings = new();
+        settings.IgnoreMembersWithType<IntPtr>();
+        var target = new { Name = "keep", Handle = (IntPtr)42 };
+
+        Assert.Equal("{\n  Name: keep\n}", Render(target, settings));
+    }
+
+    [Fact]
+    public void MemberOfIgnoredTypeIsOmittedViaNonGenericOverload()
+    {
+        VerifySettings settings = new();
+        settings.IgnoreMembersWithType(typeof(IntPtr));
+        var target = new { Name = "keep", Handle = (IntPtr)42 };
+
+        Assert.Equal("{\n  Name: keep\n}", Render(target, settings));
+    }
+
+    [Fact]
+    public void StreamSubtypeDeclaredMemberIsOmittedByDefault()
+    {
+        using MemoryStream stream = new([1, 2]);
+        var target = new { Name = "keep", Data = stream };
+
+        Assert.Equal("{\n  Name: keep\n}", Render(target));
+    }
+
+    [Fact]
+    public void StreamInstanceBehindObjectDeclaredMemberIsOmittedByDefault()
+    {
+        using MemoryStream stream = new([1, 2]);
+        var target = new { Name = "keep", Payload = (object)stream };
+
+        Assert.Equal("{\n  Name: keep\n}", Render(target));
+    }
+
+    [Fact]
+    public void NullableDeclaredMemberOfIgnoredTypeIsOmitted()
+    {
+        VerifySettings settings = new();
+        settings.IgnoreMembersWithType<IntPtr>();
+        var target = new { Name = "keep", Handle = (IntPtr?)(IntPtr)42 };
+
+        Assert.Equal("{\n  Name: keep\n}", Render(target, settings));
+    }
+
+    private class NullStreamHolder
+    {
+        public string Name { get; set; } = "keep";
+
+        public Stream? Data { get; set; }
+    }
+
+    [Fact]
+    public void NullValuedMemberOfIgnoredTypeIsOmittedWhenNullsAreIncluded()
+    {
+        Assert.Equal("{\n  Name: keep\n}", Render(new NullStreamHolder(), TmheSettings()));
+    }
+
+    [Fact]
+    public void IgnoredTypesSurviveSettingsCloning()
+    {
+        VerifySettings parent = new();
+        parent.IgnoreMembersWithType<IntPtr>();
+        VerifySettings child = new(parent);
+        var target = new { Name = "keep", Handle = (IntPtr)42 };
+
+        Assert.Equal("{\n  Name: keep\n}", Render(target, child));
     }
 
     private class BaseType
@@ -317,11 +391,101 @@ public class ObjectWalkerTests
     }
 
     [Fact]
-    public void UnsupportedConverterBackedTypeFailsFast()
+    public void UnsupportedConverterBackedTypeFailsFastNamingTheEscapeHatch()
     {
-        VerifyException exception = Assert.Throws<VerifyException>(() => Render(new { Value = (Int128)1 }));
+        VerifyException exception = Assert.Throws<VerifyException>(() => Render(new { Value = (IntPtr)42 }));
 
-        Assert.Contains("Int128", exception.Message);
+        Assert.Contains("IntPtr", exception.Message);
+        Assert.Contains("IgnoreMembersWithType", exception.Message);
+    }
+
+    [Fact]
+    public void Int128RendersMinAndMaxValues()
+    {
+        Assert.Equal(
+            "{\n  Min: -170141183460469231731687303715884105728,\n  Max: 170141183460469231731687303715884105727\n}",
+            Render(new { Min = Int128.MinValue, Max = Int128.MaxValue })
+        );
+    }
+
+    [Fact]
+    public void UInt128RendersMaxValue()
+    {
+        Assert.Equal(
+            "{\n  Max: 340282366920938463463374607431768211455\n}",
+            Render(new { Max = UInt128.MaxValue })
+        );
+    }
+
+    [Fact]
+    public void HalfRendersLikeFloat()
+    {
+        Assert.Equal(
+            "{\n  Whole: 2.0,\n  Fraction: 1.5,\n  NotANumber: NaN\n}",
+            Render(new { Whole = (Half)2, Fraction = (Half)1.5, NotANumber = Half.NaN })
+        );
+    }
+
+    [Fact]
+    public void BigIntegerRendersAsNumber()
+    {
+        Assert.Equal(
+            "{\n  Value: 12345678901234567890123456789\n}",
+            Render(new { Value = BigInteger.Parse("12345678901234567890123456789") })
+        );
+    }
+
+    [Fact]
+    public void MemoryOfBytesRendersAsBase64()
+    {
+        Assert.Equal("{\n  Data: AQI=\n}", Render(new { Data = new Memory<byte>([1, 2]) }));
+    }
+
+    [Fact]
+    public void ReadOnlyMemoryOfBytesRendersAsBase64()
+    {
+        Assert.Equal("{\n  Data: AQI=\n}", Render(new { Data = new ReadOnlyMemory<byte>([1, 2]) }));
+    }
+
+    [Fact]
+    public void JsonElementRendersInObjectGraphFormatAndScrubsGuidStrings()
+    {
+        using JsonDocument document = JsonDocument.Parse(
+            "{\"key\": \"value\", \"count\": 1.0, \"flag\": true, \"missing\": null, \"list\": [1, \"a\"], "
+            + "\"id\": \"cf1b0b18-71ba-4a52-a01a-320032a9b3cb\"}"
+        );
+
+        Assert.Equal(
+            "{\n  key: value,\n  count: 1.0,\n  flag: true,\n  missing: null,\n  list: [\n    1,\n    a\n  ],\n"
+            + "  id: Guid_1\n}",
+            Render(document.RootElement)
+        );
+    }
+
+    [Fact]
+    public void JsonDocumentRendersItsRootElement()
+    {
+        using JsonDocument document = JsonDocument.Parse("{\"key\": \"value\"}");
+
+        Assert.Equal("{\n  key: value\n}", Render(document));
+    }
+
+    [Fact]
+    public void Int128DictionaryKeyRendersAsNumber()
+    {
+        Assert.Equal(
+            "{\n  170141183460469231731687303715884105727: big\n}",
+            Render(new Dictionary<Int128, string> { [Int128.MaxValue] = "big" })
+        );
+    }
+
+    [Fact]
+    public void BigIntegerDictionaryKeyRendersAsNumber()
+    {
+        Assert.Equal(
+            "{\n  12345678901234567890123456789: big\n}",
+            Render(new Dictionary<BigInteger, string> { [BigInteger.Parse("12345678901234567890123456789")] = "big" })
+        );
     }
 
     [Fact]

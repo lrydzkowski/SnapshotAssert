@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Numerics;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -78,6 +79,24 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
             case decimal decimalValue:
                 writer.WriteValue(decimalValue);
                 return;
+            case Int128 int128Value:
+                writer.WriteValue(int128Value);
+                return;
+            case UInt128 uint128Value:
+                writer.WriteValue(uint128Value);
+                return;
+            case Half halfValue:
+                writer.WriteValue(halfValue);
+                return;
+            case BigInteger bigIntegerValue:
+                writer.WriteRaw(bigIntegerValue.ToString(CultureInfo.InvariantCulture));
+                return;
+            case Memory<byte> memoryValue:
+                writer.WriteValue(memoryValue.ToArray());
+                return;
+            case ReadOnlyMemory<byte> readOnlyMemoryValue:
+                writer.WriteValue(readOnlyMemoryValue.ToArray());
+                return;
             case Enum enumValue:
                 WriteString(enumValue.ToString());
                 return;
@@ -95,6 +114,12 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
                 return;
             case JsonNode node:
                 WriteJsonNode(node);
+                return;
+            case JsonElement jsonElement:
+                WriteJsonElement(jsonElement);
+                return;
+            case JsonDocument jsonDocument:
+                WriteJsonElement(jsonDocument.RootElement);
                 return;
         }
 
@@ -175,7 +200,8 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
         {
             throw new VerifyException(
                 $"Type '{value.GetType()}' is serialized by a built-in converter and has no members to render. "
-                + "SnapshotAssert has no rendering for it; convert the value to a supported type before verifying."
+                + "SnapshotAssert has no rendering for it; convert the value to a supported type before verifying "
+                + "or ignore the member with VerifySettings.IgnoreMembersWithType<T>()."
             );
         }
 
@@ -207,7 +233,7 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
             return;
         }
 
-        if (typeof(Stream).IsAssignableFrom(memberType))
+        if (IsIgnoredMemberType(memberType, value))
         {
             return;
         }
@@ -257,6 +283,25 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
 
         writer.WritePropertyName(name);
         WriteValue(value);
+    }
+
+    private bool IsIgnoredMemberType(Type memberType, object? value)
+    {
+        Type declaredType = Nullable.GetUnderlyingType(memberType) ?? memberType;
+        foreach (Type ignoredType in settings.Serialization.IgnoredMemberTypes)
+        {
+            if (ignoredType.IsAssignableFrom(declaredType))
+            {
+                return true;
+            }
+
+            if (value is not null && ignoredType.IsAssignableFrom(value.GetType()))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void WriteNullMember(string name)
@@ -362,27 +407,52 @@ internal class ObjectWalker(VerifySettings settings, Counter counter, VerifyText
         JsonValue jsonValue = (JsonValue)node;
         if (jsonValue.TryGetValue<JsonElement>(out JsonElement element))
         {
-            switch (element.ValueKind)
-            {
-                case JsonValueKind.String:
-                    WriteString(element.GetString()!);
-                    return;
-                case JsonValueKind.Number:
-                    writer.WriteRaw(element.GetRawText());
-                    return;
-                case JsonValueKind.True:
-                    writer.WriteValue(true);
-                    return;
-                case JsonValueKind.False:
-                    writer.WriteValue(false);
-                    return;
-                case JsonValueKind.Null:
-                    writer.WriteNull();
-                    return;
-            }
+            WriteJsonElement(element);
+            return;
         }
 
         WriteString(jsonValue.ToString());
+    }
+
+    private void WriteJsonElement(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                writer.WriteStartObject();
+                foreach (JsonProperty property in element.EnumerateObject())
+                {
+                    writer.WritePropertyName(property.Name);
+                    WriteJsonElement(property.Value);
+                }
+
+                writer.WriteEndObject();
+                return;
+            case JsonValueKind.Array:
+                writer.WriteStartArray();
+                foreach (JsonElement item in element.EnumerateArray())
+                {
+                    WriteJsonElement(item);
+                }
+
+                writer.WriteEndArray();
+                return;
+            case JsonValueKind.String:
+                WriteString(element.GetString()!);
+                return;
+            case JsonValueKind.Number:
+                writer.WriteRaw(element.GetRawText());
+                return;
+            case JsonValueKind.True:
+                writer.WriteValue(true);
+                return;
+            case JsonValueKind.False:
+                writer.WriteValue(false);
+                return;
+            default:
+                writer.WriteNull();
+                return;
+        }
     }
 
     private void Push(object value)

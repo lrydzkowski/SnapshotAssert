@@ -10,6 +10,8 @@ public class SerializationSettings
 
     internal HashSet<string> IgnoredMembers { get; private init; } = [];
 
+    internal HashSet<Type> IgnoredMemberTypes { get; private init; } = [typeof(Stream)];
+
     internal SerializationSettings Clone()
     {
         return new SerializationSettings
@@ -17,7 +19,8 @@ public class SerializationSettings
             NullValueHandling = NullValueHandling,
             DefaultValueHandling = DefaultValueHandling,
             IgnoreEmptyCollections = IgnoreEmptyCollections,
-            IgnoredMembers = [.. IgnoredMembers]
+            IgnoredMembers = [.. IgnoredMembers],
+            IgnoredMemberTypes = [.. IgnoredMemberTypes]
         };
     }
 }

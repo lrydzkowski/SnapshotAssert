@@ -126,9 +126,24 @@ internal class VerifyTextWriter(StringBuilder builder)
         WriteRaw(value.ToString(CultureInfo.InvariantCulture));
     }
 
+    public void WriteValue(Int128 value)
+    {
+        WriteRaw(value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    public void WriteValue(UInt128 value)
+    {
+        WriteRaw(value.ToString(CultureInfo.InvariantCulture));
+    }
+
     public void WriteValue(double value)
     {
         WriteRaw(EnsureDecimalPlace(value.ToString("R", CultureInfo.InvariantCulture)));
+    }
+
+    public void WriteValue(Half value)
+    {
+        WriteRaw(EnsureDecimalPlace(value.ToString(CultureInfo.InvariantCulture)));
     }
 
     public void WriteValue(float value)

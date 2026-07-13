@@ -99,6 +99,18 @@ public class VerifySettings
         Serialization.IgnoredMembers.Add(name);
     }
 
+    public void IgnoreMembersWithType<T>()
+    {
+        IgnoreMembersWithType(typeof(T));
+    }
+
+    public void IgnoreMembersWithType(Type type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+
+        Serialization.IgnoredMemberTypes.Add(type);
+    }
+
     public void AddScrubber(Action<StringBuilder> scrubber)
     {
         AddScrubber((builder, _) => scrubber(builder));
